@@ -8,7 +8,10 @@
 with events as (
     select * from {{ source('jaffle_shop', 'events') }}
     {% if is_incremental() %}
-    where collector_tstamp >= (select max(collector_tstamp) - interval '3 days' from {{ this }})
+    where anonymous_user_id in (
+        select distinct anonymous_user_id from {{ source('snowplow', 'events') }}
+        where event_timestamp >= (select dateadd('day', -3, max(event_timestamp)::date) from {{ this }})
+    )
     {% endif %}
 ),
 

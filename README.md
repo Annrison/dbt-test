@@ -19,7 +19,17 @@ This is a `dbt-materialization` quickstart template, that supports PostgreSQL ru
   - [2 Create a repository and env prepare​](#2-create-a-repository-and-env-prepare)
   - [3 Create a project​](#3-create-a-project)
   - [4 Connect to PostgreSQL​](#4-connect-to-postgresql)
+- [Course](#course)
+    - [1. what is materializations?](#1-what-is-materializations)
+    - [2. Tables, views, and ephemeral models](#2-tables-views-and-ephemeral-models)
+    - [3. Incremental models](#3-incremental-models) 
 
+
+# Reference
++ [dbt course: advanced-materializations](https://learn.getdbt.com/courses/advanced-materializations)
++ dbt official doc
+    + [Materializations](https://docs.getdbt.com/docs/build/materializations)
+    + [Add snapshots to your DAG](https://docs.getdbt.com/docs/build/snapshots)
 
 # Setup Steps
 
@@ -443,6 +453,40 @@ WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
         dbt run -m stg_page_views_v2 --debug
         ```
 
++ 2. Method 3: Check all the user events in specific time period
+
+    1. add the following code to `models/snowplow/stg_page_views_v3.sql`
+        + count all `anonymous_user_id` users' event in past 3 days
+        + it's a slower but more correct solution
+    
+    ```
+    {{ config(
+    materialized = 'incremental',
+    unique_key = 'page_view_id'
+    ) }}
+
+    with events as (
+        select * from {{ source('jaffle_shop', 'events') }}
+        {% if is_incremental() %}
+        where anonymous_user_id in (
+            select distinct anonymous_user_id from {{ source('snowplow', 'events') }}
+            where event_timestamp >= (select dateadd('day', -3, max(event_timestamp)::date) from {{ this }})
+        )
+        {% endif %}
+    ),
+    ```
+
+    2. run the model, check the log
+
+    ```
+    dbt run -m stg_page_views_v3 --debug
+    ```
+
++ quick note:
+    + in this example, `stg_page_views_v3` takes most time
+        + stg_page_views_v1: 0.40 secs
+        + stg_page_views_v2: 0.42 secs
+        + stg_page_views_v3: 0.49 secs
 
 # 4. What are snapshots?
 
@@ -542,4 +586,5 @@ WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
     ```
     select * from jaffle_shop_snapshot.snap_products_price
     ```
+
 
