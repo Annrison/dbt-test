@@ -367,7 +367,7 @@ WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
 # 3. Incremental models
 
 + in this section, we use 
-    1. model in `model/snowplow` for example
+    1. model in `models/snowplow` for example
     2. `events` table in `dev` database, `jaffle_shop` schema
 
 + 1. Method 1: Insert Data after Latest Time
@@ -386,7 +386,7 @@ WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
 
     ```
     {{ config(
-        materialized = 'incremental'
+    materialized = 'incremental'
     ) }}
 
     with events as (
@@ -435,7 +435,7 @@ WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
     with events as (
         select * from {{ source('jaffle_shop', 'events') }}
         {% if is_incremental() %}
-        where collector_tstamp >= (select max(collector_tstamp) - interval '3 days' from {{ this }})
+        where collector_tstamp >= (select max(max_collector_tstamp) - interval '3 days' from {{ this }})
         {% endif %}
     ),
     ```
@@ -469,8 +469,8 @@ WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
         select * from {{ source('jaffle_shop', 'events') }}
         {% if is_incremental() %}
         where anonymous_user_id in (
-            select distinct anonymous_user_id from {{ source('snowplow', 'events') }}
-            where event_timestamp >= (select dateadd('day', -3, max(event_timestamp)::date) from {{ this }})
+            select distinct anonymous_user_id from {{ source('jaffle_shop', 'events') }}
+            where collector_tstamp >= (select max(max_collector_tstamp) - interval '3 days' from {{ this }})
         )
         {% endif %}
     ),
@@ -482,11 +482,36 @@ WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
     dbt run -m stg_page_views_v3 --debug
     ```
 
-+ quick note:
-    + in this example, `stg_page_views_v3` takes most time
-        + stg_page_views_v1: 0.40 secs
-        + stg_page_views_v2: 0.42 secs
-        + stg_page_views_v3: 0.49 secs
++ 3. note: prevent use window function in incremental
+    + incremental only update data with specific period
+    + however, window function usually need the whole dataset to calculate
+    + check the `models/snowplow/stg_page_views_v4.sql`
+    + better approach is to use window function in another model
+
+    + if we replace to the code below
+    ```
+    select * from joined
+    ```
+
+    + `page_view_in_session_index` and `page_view_for_user_index` only get the data from past three days
+    ```
+    indexed as (
+    select
+        *,
+        row_number() over (
+            partition by session_id
+            order by page_view_start
+        ) as page_view_in_session_index,
+        row_number() over (
+            partition by anonymous_user_id
+            order by page_view_start
+        ) as page_view_for_user_index
+    from joined
+    )
+
+    select * from indexed
+    ```
+
 
 # 4. What are snapshots?
 
@@ -570,7 +595,7 @@ WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
     2. run dbt to build snapshot table
 
     ```
-    dbt snapshot -s snap_product_price --debug
+    dbt snapshot -s snap_products_price --debug
     ```
 
     3. change data in `jaffle_shop.products`
@@ -579,7 +604,7 @@ WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
 
     + update the snapshot
     ```
-    dbt snapshot -s snap_product_price --debug
+    dbt snapshot -s snap_products_price --debug
     ```
 
     + check the snapshot table in dbeaver
