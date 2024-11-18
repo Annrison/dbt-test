@@ -8,7 +8,7 @@
 with events as (
     select * from {{ source('jaffle_shop', 'events') }}
     {% if is_incremental() %}
-    where collector_tstamp >= (select max(collector_tstamp) - interval '3 days' from {{ this }})
+    where collector_tstamp >= (select max(max_collector_tstamp) - interval '3 days' from {{ this }})
     {% endif %}
 ),
 

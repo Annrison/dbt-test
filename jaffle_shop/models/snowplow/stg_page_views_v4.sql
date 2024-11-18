@@ -8,10 +8,7 @@
 with events as (
     select * from {{ source('jaffle_shop', 'events') }}
     {% if is_incremental() %}
-    where anonymous_user_id in (
-        select distinct anonymous_user_id from {{ source('jaffle_shop', 'events') }}
-        where collector_tstamp >= (select max(max_collector_tstamp) - interval '3 days' from {{ this }})
-    )
+    where collector_tstamp >= (select max(max_collector_tstamp) - interval '3 days' from {{ this }})
     {% endif %}
 ),
 
@@ -28,10 +25,26 @@ aggregated_page_events as (
     from events
     group by 1
 ),
+
 joined as (
     select
         *
     from page_views
     left join aggregated_page_events using (page_view_id)
+),
+
+indexed as (
+    select
+        *,
+        row_number() over (
+            partition by session_id
+            order by page_view_start
+        ) as page_view_in_session_index,
+        row_number() over (
+            partition by anonymous_user_id
+            order by page_view_start
+        ) as page_view_for_user_index
+    from joined
 )
-select * from joined
+
+select * from indexed
