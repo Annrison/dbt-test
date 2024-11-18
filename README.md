@@ -1,4 +1,4 @@
-# `dbt-macros-packages` Quickstart
+# `dbt-materialization` Quickstart
 
 [![Generic badge](https://img.shields.io/badge/dbt-1.8.8-blue.svg)](https://docs.getdbt.com/dbt-cli/cli-overview)
 [![Generic badge](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
