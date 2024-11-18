@@ -2,11 +2,12 @@
 # Name your project! Project names should contain only lowercase characters
 # and underscores. A good package name should reflect your organization's
 # name or the intended use of these models
-name: 'dbt_jinja'
-version: '1.0.0'
+name: 'jaffle_shop'
+version: '1.8.8'
 
 # This setting configures which "profile" dbt uses for this project.
-profile: 'dbt_jinja'
+profile: 'jaffle_shop'
+
 
 # These configurations specify where dbt should look for different types of files.
 # The `model-paths` config, for example, states that models in this project can be
@@ -23,6 +24,12 @@ clean-targets:         # directories to be removed by `dbt clean`
   - "dbt_packages"
 
 
+
+seeds:
+  default:
+    enabled: true
+    schema: 'jaffle_shop'  # 替換為您在 PostgreSQL 中的目標 schema
+
 # Configuring models
 # Full documentation: https://docs.getdbt.com/docs/configuring-models
 
@@ -30,5 +37,10 @@ clean-targets:         # directories to be removed by `dbt clean`
 # directory as views. These settings can be overridden in the individual model
 # files using the `{{ config(...) }}` macro.
 models:
-  dbt_jinja:
-    +materialized: view
+  jaffle_shop:
+    # Config indicated by + and applies to all files under models/example/
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table
+    
