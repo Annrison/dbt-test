@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  - name: dim_customers # model name
+    description: One record per customer
+    columns:
+      - name: customer_id
+        description: Primary key
+        data_tests:
+          # comment on coverage demo
+          - unique
+          - not_null
+          - relationships:
+              to: ref('stg_customers')
+              field: customer_id
+      - name: first_order_date
+        description: NULL when a customer has not yet placed an order.
+      - name: lifetime_value
+        description: Lifetime value of a customer based on orders purchased
+
+  - name: fct_orders # model name
+    description: Complete orders model including the amount associated with each order.
+    # # open when pkg demo
+    # data_tests:
+    #   - dbt_utils.expression_is_true:
+    #       expression: "amount >= 5"
+    columns:
+      - name: order_id
+        description: Primary key for orders
+        data_tests:
+          - unique
+          - not_null # comment when overwriting demo
+          - relationships:
+              to: ref('stg_orders')
+              field: order_id
+      - name: amount
+        description: Dollars spent per order
+        # # open when generic test demo
+        # data_tests: 
+        #   - assert_column_greater_than_five
+        data_tests: 
+          - not_null # # comment when overwriting demo
+          # # open when overwriting demo
+          # - not_null:
+          #     column_id: order_id
+          # open when pkg demo
+          # - dbt_expectations.expect_column_values_to_be_between:
+          #     min_value: 5
+          #     row_condition: "order_id is not null"
+          #     strictly: True
+      - name: customer_id
+        description: id of customer
+        # # open when save error demo, this test should failed
+        data_tests:
+          - unique
+
+
+  - name: dim_customers_wo_check # model name
+    description: One record per customer
+    columns:
+      - name: customer_id
+        description: Primary key
+        # data_tests:
+        #   - unique
+        #   - not_null
+      - name: first_order_date
+        description: NULL when a customer has not yet placed an order.
+      - name: lifetime_value
+        description: Lifetime value of a customer based on orders purchased

@@ -5,5 +5,10 @@ sources:
     schema: jaffle_shop  
     tables:
       - name: orders
+        columns:
+          - name: id
+            tests:
+              - unique
+              - not_null
       - name: customers
       - name: payments

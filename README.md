@@ -1,35 +1,27 @@
-# `dbt-materialization` Quickstart
+# `dbt-test` Quickstart
 
 [![Generic badge](https://img.shields.io/badge/dbt-1.8.8-blue.svg)](https://docs.getdbt.com/dbt-cli/cli-overview)
 [![Generic badge](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
 [![Generic badge](https://img.shields.io/badge/Python-3.11.10-blue.svg)](https://www.python.org/)
 [![Generic badge](https://img.shields.io/badge/Podman-5.0.2-blue.svg)](https://www.docker.com/)
 
-This is a `dbt-materialization` quickstart template, that supports PostgreSQL run with podman. This turtorial assumed viewer has basic DBT and Jinja knowledge. If not please have these lessons first.
+This is a `dbt-test` quickstart template, that supports PostgreSQL run with podman. This turtorial assumed viewer has basic DBT and Jinja knowledge. If not please have these lessons first.
   - [dbt-core-quickstart-template](https://github.com/saastoolset/dbt-core-quickstart-template)
-  - [Jinja2-101-template](https://github.com/saastool/jinja2-101)
   
-  This `dbt-materialization` taken from the various [dbt Developer Hub](https://docs.getdbt.com/guides/using-jinja) and the infrastructure is based on [dbt-core-quickstart-template](https://github.com/saastoolset/dbt-core-quickstart-template), using `PostgreSQL` as the data warehouse. 
+  This `dbt-test` taken from the various [dbt Developer Hub](https://docs.getdbt.com/guides/using-jinja) and the infrastructure is based on [dbt-core-quickstart-template](https://github.com/saastoolset/dbt-core-quickstart-template), using `PostgreSQL` as the data warehouse. 
 
   If you have finished dbt-core-quickstart-template before, the infrastructure and architect we using here are total the same. That is to say, you can skip directly to [Step 3 Create a project​](#3-create-a-project)
 
-- [`dbt-core` Quickstart](#dbt-core-quickstart)
-- [Steps](#steps)
+- [Setup Steps](#setup-steps)
   - [1 Introduction​](#1-introduction)
   - [2 Create a repository and env prepare​](#2-create-a-repository-and-env-prepare)
   - [3 Create a project​](#3-create-a-project)
   - [4 Connect to PostgreSQL​](#4-connect-to-postgresql)
 - [Course](#course)
-    - [1. what is materializations?](#1-what-is-materializations)
-    - [2. Tables, views, and ephemeral models](#2-tables-views-and-ephemeral-models)
-    - [3. Incremental models](#3-incremental-models) 
+    - []()
 
 
-# Reference
-+ [dbt course: advanced-materializations](https://learn.getdbt.com/courses/advanced-materializations)
-+ dbt official doc
-    + [Materializations](https://docs.getdbt.com/docs/build/materializations)
-    + [Add snapshots to your DAG](https://docs.getdbt.com/docs/build/snapshots)
+
 
 # Setup Steps
 
@@ -201,415 +193,514 @@ dbt seed
   + the database and schema are defined in `dbt_project.yml`
   + if database is not defined in `dbt_project.yml`, it would be the same as the database in `profiles.yml`
 
-3. create sample table by sql
-+ open the sql file in `db` folder, excute `events.sql` and `products.sql`, you will create these 2 tables in the same database and schema
-  + events
-  + products
+
 
 
 # Course
 
-1. Explain the five main types of materializations in dbt.
-2. Configure materializations in configuration files and in models.
-3. Explain the differences and tradeoffs between tables, views, and ephemeral models.
-4. Build intuition for incremental models.
-5. Build intuition for snapshots.
 
 
-# 1. what is materializations?
 
-+ what is materializations?
-    + `how` dbt process `models` and save result to database
+## 1. Introduciton to Advanced Testing
++ Learning Objectives
+  + Explain the types of testing that are possible in dbt
+  + Explain what makes a good test
+  + Explain what to test and why
+  + Ensure proper test coverage with `dbt_meta_testing` package
++ what is testing ?
+  + select statement to select fail record, to assert model quality
+  + ex: if you assume a column should be unique in the model, the test would select the duplicate records
++ what makes good testing ?
+  + it should always running
+  + it should be fast
+  + include clues to fix error, like whick table/column to fix
+  + every test should be independent
+  + it should only validate 1 assumption
++ type of test ?
+  1. data base object
+    + assume something about data is true, like not null
+  2. relationship
+    + like if two joined model have the same size or key
+  3. business logic
+    + test example 
+      + payments >= 0 for order data
+      + billing data = sum of all parts
+  4. freshness
+    + test if new data is added in last X hours
+    + ex: setting low and hight watermark of the data, if the data not updated within 24 hours, set a warning
+  5. refactor
+    + test if a model is the same after refactoring
++ 4 generic tests
+  + unique, not null, relationship, accepted values
 
-+ what is model ?
-    + `select` statements from sql file
-    + usually not include `update` or `delete`
-    + dbt read sql file to generate `DDL`/`DML` to create `table` or `view`
+## 2. Test coverage and schema test
+
++ Learning objectives
+  + Understand when in the life cycle of your project to run different types of tests
+  + Run tests on subsets of your DAG using node selector syntax and test specific flags
+  + How to take action on your test failures
+  + Enable testing to store test failures in the database for record keeping
+
++ checking test coverage (schema test)
+  + schema testing info are writed in `.yml`, as the same level of model sql
+
+  1. download the [dbt_meta_testing](https://hub.getdbt.com/tnightengale/dbt_meta_testing/latest/) pkg 
+
+    + add the following to the `packages.yml` file
+    ```
+    packages:
+      - package: tnightengale/dbt_meta_testing
+        version: 0.3.6
+    ```
+
+    + download pkg
+    ```
+    dbt deps
+    ```
+
+    + run the models again
+    ```
+    dbt run
+    ```
+
+  2. add the test setting to `dbt_project.yml`
     + tips
-        + `DDL`(Data Definition Language): define/modify table structure
-        + `DML`(Data Manipulation Language): modify data, like inset, update or delete
-
-+ materializations can be define in
-    1. `dbt_project.yml` file
-    2. top `config` part of sql file
-
-
-## 5 type of materializations
-
-1. table
-    + re-create table every time excute the model
-    + suits: small, not frequently modified statement
-    + pros: inhance efficiency
-    + cons: cost storage
-    + `{{ config(materialized='view') }}`
-2. view
-    + excute `select` statement every time you excute model
-    + suits: light, frequently modified statement
-    + pros: save storage
-    + cons: if statement is complex, it may cost a lot of
-    + `{{ config(materialized='table') }}`
-3. Ephemeral (CTE)
-    + pass select statement, let other downstream model import as a CTE
-    + suits: 
-        + very light transformations
-        + only use in one or two downstream models
-        + ** don't need to query directly (it doesn't exist in database) **
-    + pros: decrease storage loading for database
-    + cons: may effect model efficiency if model is complex
-    + `{{ config(materialized='ephemeral') }}`
-    + tips
-        + model `sales_data (A)` -> model `sales_summary (B)`
-        + `A`: upstream model of `B`
-        + `B`: downstream model of `A`
-4. Incremental (insert)
-    + look at an underlying data (source data), and only insert new data to another existing table
-    + suits: needs of insert frequently increased data
-    + pros: save time and resource to re-create table
-    + cons: need to design the Incremental condition carefully
-```
-{{ config(materialized='incremental') }}
-
-SELECT *
-FROM source_table
-{% if is_incremental() %}
-WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
-{% endif %}
-```
-
-5. snapshot (save changed data)
-    + capture historical changes in mutable source data (e.g., Slowly Changing Dimensions)
-    + takes periodic "snapshots" of a source table and records the data's state over time
-    + suits: Scenarios where you need to maintain a history of changes in the source data (e.g., updated_at, status)
-    + pros:
-        + enables time-travel analysis by retaining historical states
-        + supports Slowly Changing Dimensions (SCD Type 2) use cases
-    + cons:
-        + requires additional storage for historical records
-        + potentially higher runtime costs for large datasets
-        + complexity increases if business rules for capturing changes are ambiguous or frequently modified
-
-
-# 2. Tables, views, and ephemeral models
-
-+ in this section, we use model `fct_orders`, `dim_customers` for example
-+ add the `--debug` in command to check the excuted sql
-
-+ 1. Create Table
-
-    1. change the config setting of `fct_orders.sql`
-
-    ```
-    {{ config(
-        materialized='table'
-    ) }}
-    ```
-    
-    2. run the `fct_orders` and it's downstream model `dim_customers`
-
-    ```
-    dbt run -m fct_orders+ --debug
-    ```
-    + every time dbt re-create the table, it would be the following:
-        1. create new `<table_name>__dbt_tmp` 
-        2. rename original `<table_name>` to `<table_name>__dbt_backup`
-        3. rename new `<table_name>__dbt_tmp` to `<table_name>`
-        4. drop original `<table_name>__dbt_backup`
-
-
-+ 2. Create View
-
-    1. change the config setting of `fct_orders.sql`
-
-        ```
-        {{ config(
-            materialized='view'
-        ) }}
-        ```
-
-    2. run the `fct_orders` and it's downstream model `dim_customers`
-
-        ```
-        dbt run -m fct_orders+ --debug
-        ```
-        + if you turn view to table, it would be the following:
-            1. create new view `<table_name>__dbt_tmp`
-            2. rename original table to `<table_name>__dbt_backup`
-            3. rename new view `<table_name>__dbt_tmp` to new view `<table_name>`
-            4. drop original table `<table_name>__dbt_backup`
-
-3. Ephemeral
-    + it does not exist in the database
-    + reusable code snippet
-    + interpolated as CTE in a model that refs this model
-
-    1. change the config setting of `fct_orders.sql`
-
-        ```
-        {{ config(
-            materialized='ephemeral'
-        ) }}
-        ```
-
-    2. delete the view `fct_orders`
-
-    3. run the `fct_orders` and it's downstream model `dim_customers`
-
-        ```
-        dbt run -m fct_orders+ --debug
-        ```
-        + `fct_orders` model would not be run, cause it's a reusable code snippet
-        + instead the sql in `fct_orders` would be added to `dim_customers` model
-        + where is the view `fct_orders`?
-            + after we delete view `fct_orders`, it doesn't appear again
-            + if we didn't delete view `fct_orders`, dbt would simply ignored it
-
-
-# 3. Incremental models
-
-+ in this section, we use 
-    1. model in `models/snowplow` for example
-    2. `events` table in `dev` database, `jaffle_shop` schema
-
-+ 1. Method 1: Insert Data after Latest Time
-
-    1. have a look on `event` table
-        + we would choose `collector_tstamp` column for time cut off
-        + which means the time pipeline collected the data
-
-    ```
-    select * from jaffle_shop.events
-    ```
-
-    2. add the following code to `models/snowplow/stg_page_views_v1.sql`
-        + if we don't add `is_incremental()`, model would fail for the first time cause `this` doesn't exist
-        + since the model can't `ref()` to itself, use `this` argument
-
-    ```
-    {{ config(
-    materialized = 'incremental'
-    ) }}
-
-    with events as (
-        select * from {{ source('jaffle_shop', 'events') }}
-        {% if is_incremental() %}
-        where collector_tstamp >= (select max(max_collector_tstamp) from {{ this }})
-        {% endif %}
-    ),
-    ```
-
-    3. run the model for the first time, check the log (first time)
-        + it would create table `stg_page_views_v1` at the first time
-
-        ```
-        dbt run -m stg_page_views_v1 --debug
-        ```
-    
-    4. run the model for the first time, check the log (second time)
-        + create tmp table `<table_name>__dbt_tmp<tmp_id>`
-        + insert data of `<table_name>__dbt_tmp<tmp_id>` to official `<table_name>`
-
-        ```
-        dbt run -m stg_page_views_v1 --debug
-        ```
-    
-    5. run the model in all refresh mode
-        + it would create table like the first time running the model
-        + it would fully refresh the whole table
-
-        ```
-        dbt run -m stg_page_views_v1 --full-refresh --debug
-        ````
-
-+ 2. Method 2: : Insert Data after (Latest Time – Time Period)
-
-    1. add the following code to `models/snowplow/stg_page_views_v2.sql`
-        + add `page_view_id` column as unique key for record
-        + adjust the time cut off to 3 days before max `collector_tstamp`
-
-    ```
-    {{ config(
-    materialized = 'incremental',
-    unique_key = 'page_view_id'
-    ) }}
-
-    with events as (
-        select * from {{ source('jaffle_shop', 'events') }}
-        {% if is_incremental() %}
-        where collector_tstamp >= (select max(max_collector_tstamp) - interval '3 days' from {{ this }})
-        {% endif %}
-    ),
-    ```
-
-    2. run the model for 2 times, check the log
-        + first time it would create a table
-        + second time
-            + create tmp table `<table_name>__dbt_tmp<tmp_id>`
-            + delete data in official table `<table_name>` which is also in `<table_name>__dbt_tmp<tmp_id>` (identified by `page_view_id`)
-            + insert tmp data in `<table_name>__dbt_tmp<tmp_id>` to `<table_name>`
-        + note that different database has different approch
-        + set the cut off time from experiments
-
-        ```
-        dbt run -m stg_page_views_v2 --debug
-        ```
-
-+ 2. Method 3: Check all the user events in specific time period
-
-    1. add the following code to `models/snowplow/stg_page_views_v3.sql`
-        + count all `anonymous_user_id` users' event in past 3 days
-        + it's a slower but more correct solution
+      + The `+required_tests` config must be `None` or a dict with `str` keys and `int` values
+      + if you use dict format like `+required_tests:{"unique.*|not_null":2}` there should not be any whitespace, like `{"unique.*|not_null": 2 }` is not ok
+    + what the setting means: 
+      + all models in `models/core` should meet `required_tests` rules
+      + test setting is define in `models/core/_core.yml`
+      + each model should have 
+        + `2` tests included `unique` or `not_null`
+        + `1 relationship` test
     
     ```
-    {{ config(
-    materialized = 'incremental',
-    unique_key = 'page_view_id'
-    ) }}
-
-    with events as (
-        select * from {{ source('jaffle_shop', 'events') }}
-        {% if is_incremental() %}
-        where anonymous_user_id in (
-            select distinct anonymous_user_id from {{ source('jaffle_shop', 'events') }}
-            where collector_tstamp >= (select max(max_collector_tstamp) - interval '3 days' from {{ this }})
-        )
-        {% endif %}
-    ),
+    models:
+      jaffle_shop:
+        marts:
+          core:
+            +required_tests:
+              "unique.*|not_null": 2
+              "relationship.*": 1
+            +materialized: table
+        staging:
+          +materialized: view
     ```
 
-    2. run the model, check the log
+    + check the `_core.yml`, the following setting would run built in test `unique` and `not_null` on column `customer_id` on model `customers`
 
     ```
-    dbt run -m stg_page_views_v3 --debug
+    - name: dim_customers # model name
+      description: One record per customer
+      columns:
+        - name: customer_id
+          description: Primary key
+          data_tests:
+            - unique
+            - not_null
+            - relationships:
+                to: ref('stg_customers')
+                field: customer_id
     ```
 
-+ 3. note: prevent use window function in incremental
-    + incremental only update data with specific period
-    + however, window function usually need the whole dataset to calculate
-    + check the `models/snowplow/stg_page_views_v4.sql`
-    + better approach is to use window function in another model
-
-    + if we replace to the code below
-    ```
-    select * from joined
-    ```
-
-    + `page_view_in_session_index` and `page_view_for_user_index` only get the data from past three days
-    ```
-    indexed as (
-    select
-        *,
-        row_number() over (
-            partition by session_id
-            order by page_view_start
-        ) as page_view_in_session_index,
-        row_number() over (
-            partition by anonymous_user_id
-            order by page_view_start
-        ) as page_view_for_user_index
-    from joined
-    )
-
-    select * from indexed
-    ```
-
-
-# 4. What are snapshots?
-
-+ in this section, we use sql in `snapshots` folder
-+ we usually save snapshot in other schema, to let users know they are raw data which shouldn't be changed mamually
-+ they should not be fully refresh
-+ overall we recommand to set snapshot in `timestamp` mode, but if the updated_at is unstable, change to `check` mode
-
-1. set snapshot by timestamp
-    + in the beginning we define the snapshot name is `snap_products_ts`
-    + set the `updated_at` column as the tracking timestamp column
+  3. run macro `required_tests`
+    + `required_tests` is a bulit in test in `dbt_meta_testing` package
+    + the detail of this macro is in `dbt_packages/dbt_meta_testing/macro/required_tests.sql`
+    + if you define a `required_tests` in your macro folder, it would overwrite the built in macro when excuting the following code
+    + only check if the setting of `dbt_project.yml` meet setting in `.yml` in `models` folder
+    + you can add it in CI process # todo check official doc
 
     ```
-    {% snapshot snap_products_ts %}
-
-    {% set new_schema = target.schema + '_snapshot' %}
-
-    {{
-        config(
-        target_database='postgres',
-        target_schema=new_schema,
-        unique_key='id',
-
-        strategy='timestamp',
-        updated_at='updated_at'
-        )
-    }}
-
-    select * from {{ source('jaffle_shop', 'products') }}
-
-    {% endsnapshot %}
+    dbt run-operation required_tests
     ```
 
-    2. run dbt to build snapshot table
-
+    + the log should be like this
     ```
-    dbt snapshot -s snap_products_ts --debug
+    03:30:05  Checking `required_tests` config...
+    03:30:05  Success. `required_tests` passed.
     ```
+  
+  4. comment on the following code, and run the test again, it should gives warning that some tests are missing
 
-    3. change data in `jaffle_shop.products`
-
-    4. run the command again to check if the snapshot update
-
-    + update the snapshot
+    + comment following code in `_core.yml` (coverage demo)
     ```
-    dbt snapshot -s snap_products_ts --debug
-    ```
-
-    + check the snapshot table in dbeaver
-    ```
-    select * from jaffle_shop_snapshot.snap_products_ts
+    # data_tests:
+    #   - unique
+    #   - not_null
     ```
 
-2. set snapshot by checking columns
+    + run required_tests again
+    ```
+    dbt run-operation required_tests
+    ```
+
+    + the log should be like this
+    ```
+    Insufficient test coverage from the 'required_tests' config on the following models:
+      - Model: 'dim_customers' Test: 'unique.*|not_null' Got: 0 Expected: 2
+    ```
+
+  5. ignore test setting in `dbt_project`
+  + if you add following code to the top of model sql file, the model can ignore the tests
+  + check `models/core/dim_customers_wo_check.sql`
+  + delete `required_tests=None` , to see if it gives error
+
+  ```
+  -- config overwrite setting in dbt_project.yml, and this doesn't required tests
+  {{ config(
+    materialized='table', required_tests=None
+  )}}
+  ```
+  ```
+  dbt run-operation required_tests
+  ```
+
+## 3. How to run the test?
+
++ Overall test after developing
+  + note that `dbt test` only test existing models, so you need to build models first then test the models
+
++ method 1 (more complete)
+  + test the sources first, then run `models`, then run `tests` on models exclude sources
+  + sources are defined in `.yml` in model folder, like `model/staging/schema.yml`
+    + `dbt test -s "source:*"`
+      + run test defined in `source` parameter, test on raw data, not `stage` data
+      + [How do I run tests on just my sources?](https://docs.getdbt.com/faqs/Tests/testing-sources)
+    + `dbt run`
+      + run and build all models
+      + [About dbt run command](https://docs.getdbt.com/reference/commands/run)
+    + `dbt test --select <test_name>`: run test seperately
+    + `dbt test --exclude sources:*`: run all tests except for tests under source
++ method 2 (faster)
+  + `dbt build`
+    + it will do
+      + run models
+      + test tests
+      + snapshot snapshots
+      + seed seeds
+    + `--fail-fast`
+      + if fail, stop the process
+    + `--models state:modified+`
+      + for only modified models and thier downstream models
+      + base on version control file in `target/`
+    + `--write-json`
+      + generate `run_results.json`, `manifest.json` to save current model status in `target/`
+
++ test models seperately and save fail record
+  
+  1. open comment on `_core.yml` for `fct_orders` model (`save error demo`)
+  ```  
+  - name: customer_id
+    description: id of customer
+    # this test should failed
+    data_tests:
+      - unique
+  ```
+
+  2. run the test
+    + it should give out the error message tells you that `29` records not pass the tests
+    + test sql saved in `target/compiled/jaffle_shop/models/marts/core/_core.yml/unique_fct_orders_customer_id.sql`
+    + if you paste the sql in the DBeaver, you can check the duplicate `customer_id` and their counts
+    ```
+    dbt test -s fct_orders
+    ```
+
+  3. run the test again but save failure to table
+    + the log show that failure data is saved in `"postgres"."jaffle_shop_dbt_test__audit"."unique_fct_orders_customer_id"`
     
-    1. change the `snapshots/snap_product_price.sql`
-        + set the `price` column as the checking column
-        + more than one column can be set as checking column
-
     ```
-    {% snapshot snap_products_price %}
-
-    {% set new_schema = target.schema + '_snapshot' %}
-
-    {{
-        config(
-        target_database='postgres',
-        target_schema=new_schema,
-        unique_key='id',
-
-        strategy='check',
-        check_cols =['price']
-        )
-    }}
-
-    select * from {{ source('jaffle_shop', 'products') }}
-
-    {% endsnapshot %}
+    dbt test -s fct_orders --store-failures
     ```
 
-    2. run dbt to build snapshot table
-
+    + select the test result in DBeaver
+      + the select result is the same as above
     ```
-    dbt snapshot -s snap_products_price --debug
-    ```
-
-    3. change data in `jaffle_shop.products`
-
-    4. run the command again to check if the snapshot update
-
-    + update the snapshot
-    ```
-    dbt snapshot -s snap_products_price --debug
+    select * from "postgres"."jaffle_shop_dbt_test__audit"."unique_fct_orders_customer_id"
     ```
 
-    + check the snapshot table in dbeaver
+## 4. Custome tests
+
++ singular test
+  + `select` statement stored in `tests` folder
+  + test specific model, return data that fail to meet the assumption
+  + add a test sql `tests/fct_orders_amount_greater_than_five.sql` from `note_sql/`
+
+  ```
+  -- this singular test tests the assumption that the amount column
+  -- of the orders model is always greater than 5.
+
+  select 
+      amount 
+  from {{ ref('orders') }}
+  where amount <= 5
+  ```
+
+  + run the tests
+  + it will run all the test associate with `order` model, include
+    + `schema test` defined in `_core.yml`
+    + `singular test` defined in `tests` folder
+  + result would shows that `FAIL 15`, means there're 15 records don't meet the assumption
+  ```
+  dbt test --select fct_orders
+  ```
+
+## 5. Generic Test
+
++ if a singular test is applied to more than one model, you can consider to turn it to a generic test to let it applied to multiple models
++ all built in dbt tests are generic tests
++ generic tests
+  + can be written in
+    + `tests/generic`
+    + `macros/`
+  + should have one or both standard arguments `model`, `column_name` 
++ the used model column is defined in `_core.yml`
++ see more info at [generic-tests-with-standard-arguments](https://docs.getdbt.com/best-practices/writing-custom-generic-tests#generic-tests-with-standard-arguments)
+
+
++ practice
+  + 1. add test sql to `tests/generic/assert_column_greater_than_five.sql`
+  ```
+  -- this generic test tests the assumption that the column
+  -- of the model_name is always greater than 5.
+
+  {% test assert_column_greater_than_five(model, column_name) %}
+
+  select
+      {{ column_name }}
+  from {{ model }}
+  where {{ column_name }} <= 5
+
+  {% endtest %}
+  ```
+
+  2. add the setting to `_core.yml` (`generic test demo`)
+    + notice that the name defined in `data_tests` arguments should be as the same as test name in `tests/generic/assert_column_greater_than_five.sql`
+      
     ```
-    select * from jaffle_shop_snapshot.snap_products_price
+    - name: amount
+    description: Dollars spent per order
+    data_tests:
+      - assert_column_greater_than_five
     ```
+
+  3. run the test again, it should be the same error
+    ```
+    dbt test --select fct_orders --store-failures
+    ```
+
+## 6. Overwriting Native Tests
+  + some general tests are built in dbt core code, like `not_null` or `unique`
+  + have a look on original sql, take my path as example
+  ```
+  cd ../../../env/dbt-course/lib/python3.13/site-packages/dbt/include/global_project/macros/generic_test_sql
+  ```
+  + `not_null.sql`
+  ```
+  {% macro default__test_not_null(model, column_name) %}
+
+  {% set column_list = '*' if should_store_failures() else column_name %}
+
+  select {{ column_list }}
+  from {{ model }}
+  where {{ column_name }} is null
+
+  {% endmacro %}
+  ```
+
+  + practice
+  1. open DBeaver, modify `amount` column of the first and second row to `NULL` in `fct_orders` table 
+  2. run the tests, you will get 2 fail error for `not_null` test
+    ```
+    dbt test --select fct_orders --store-failures
+    ``` 
+  3. add a test `tests/generic/not_null.sql` from `note_sql/`
+  ```
+  -- this is the not_null test, with a mod!
+  {% test not_null(model, column_name, column_id) %}
+
+  select *
+  from {{ model }}
+  where {{ column_name }} is null
+    and {{ column_id }} != 1
+
+  {% endtest %}
+  ```
+  3. modified setting in `_core.yml`
+    + open and comment on `overwriting demo` setting
+    + note that a `column_id` variable is needed
+
+    ```
+    data_tests: 
+      # open when overwriting demo
+      - not_null:
+          column_id: order_id
+    ```
+
+    + remember to comment on other test to prevent error
+    ```
+    - name: order_id
+      description: Primary key for orders
+      data_tests:
+        - unique
+        # - not_null # comment when overwriting demo
+        - relationships:
+            to: ref('stg_orders')
+            field: order_id
+    ```
+
+  4. run the tests again, you will get only 1 fail error for `not_null` test, which means it skip the first row
+    ```
+    dbt test --select fct_orders --store-failures
+    ```
+
+## 7. Tests in packages
+
++ sometimes dbt test already exist in current packages
+
++ 1. how to use test from packages
+
+    1. visit the package page on [hub.getdbt.com](hub.getdbt.com)
+        + take [dbt_utils](https://hub.getdbt.com/dbt-labs/dbt_utils/latest/) for example
+    2. add packages you want to `packages.yml`
+    3. install packages by
+    ```
+    dbt deps
+    ```
+
+  + dbt_utils
+    + check the detail in `_core.yml`
+      + you can check the detail in [expression_is_true](https://github.com/dbt-labs/dbt-utils/tree/1.3.0/#expression_is_true-source)
+      + this test assume that the expression input is true for all rows
+      + return rows which not meet the assumption
+      + open the comment of `pkg demo` part
+
+    ```
+    # open when pkg demo
+    data_tests:
+      - dbt_utils.expression_is_true:
+          expression: "amount >= 5"
+    ```
+
+    + run the test
+    ```
+    dbt test --select fct_orders
+    ```
+  
+  + dbt_expectations
+    + check the detail in `_core.yml`
+      + you can check the detail in [expect_column_values_to_be_between](https://github.com/calogica/dbt-expectations/tree/0.10.4/#expect_column_values_to_be_between)
+      + this test check if the rows is between two values
+      + return rows which not meet the assumption
+      + open the comment of `pkg demo` part
+      ```
+      # open when pkg demo
+      data_tests:
+        - dbt_expectations.expect_column_values_to_be_between:
+            min_value: 5
+            row_condition: "order_id is not null"
+            strictly: True
+      ```
+
+## 8. Compare Models Differences
+
++ example shows that the pkg can be applied in `analyses` and `macros`
+
+1. mismatch percentage of rows
+  + add sql `models/marts/core/fct_orders_new.sql` from `note_sql/`
+  + add sql `analyses/audit_helper_compare_relation.sql` from `note_sql/`
+  + check the result
+  ```
+  dbt compile --select audit_helper_compare_relation
+  ```
+  + paste the compiled sql in DBeaver
+
+2. mismatch percentage of rows for each column
+  + check `macros/audit_helper_compare_column_values.sql`
+  + run the macro, it would shows that the missing percentage of each column
+  ```
+  dbt run-operation audit_helper_compare_column_values
+  ```
+
+
+
+
+
+
+
+
+
+
+## related sources
+
++ [dbt course: advanced-test](https://learn.getdbt.com/courses/advanced-testing)
++ related github [learn-on-demand](https://github.com/coapacetic/learn-on-demand)
++ github issue
+  + [how to write require_test setting](https://github.com/dbt-labs/dbt-core/issues/7660)
+
+### Some other packages to consider
++ Python
+  + [dbt-coverage](https://github.com/slidoapp/dbt-coverage): 
+    + Compute coverage from catalog.json and manifest.json files found in a dbt project, e.g. jaffle_shop
+  + [pre-commit-dbt](https://github.com/dbt-checkpoint/dbt-checkpoint)
+    + A comprehensive list of hooks to ensure the quality of your dbt projects.
+    + check-model-has-tests: Check the model has a number of tests.
+    + check-source-has-tests-by-name: Check the source has a number of tests by test name.
+    + See Enforcing rules at scale with pre-commit-dbt
+
++ dbt Packages
+  + [dbt_dataquality](https://hub.getdbt.com/divergent-insights/dbt_dataquality/latest/)
+    + Access and report on the outputs from dbt source freshness (sources.json and manifest.json) and dbt test (run_results.json and manifest.json)
+    + Optionally tag tests and visualize quality by type
+  + [dbt-project-evaluator](https://github.com/dbt-labs/dbt-project-evaluator)
+    + This package highlights areas of a dbt project that are misaligned with dbt Labs' best practices. 
+
+### when to run tests
++ [dbt Developer Blog: Enforcing rules at scale with pre-commit-dbt](https://docs.getdbt.com/blog/enforcing-rules-pre-commit-dbt)
+
++ helpful packages
+
+
++ dbt_utils
+  + dbt_utils is a one-stop-shop for several key functions and tests that you’ll use every day in your project.
+  + Here are some useful tests in dbt_utils:
+    + expression_is_true
+    + cardinality_equality
+    + unique_where
+    + not_null_where
+    + not_null_proportion
+    + unique_combination_of_columns
+
++ dbt_expectations
+  + dbt_expectations contains a large number of tests that you may not find native to dbt or dbt_utils. If you are familiar with Python’s great_expectations, this package might be for you!
+  + Here are some useful tests in dbt_expectations:
+    + expect_column_values_to_be_between
+    + expect_row_values_to_have_data_for_every_n_datepart
+    + expect_column_values_to_be_within_n_moving_stdevs
+    + expect_column_median_to_be_between
+    + expect_column_values_to_match_regex_list
+    + Expect_column_values_to_be_increasing
+
++ audit_helper
+  + This package is utilized when you are making significant changes to your models, and you want to be sure the updates do not change the resulting data. The audit helper functions will only be run in the IDE, rather than a test performed in deployment.
+  + Here are some useful tools in audit_helper:
+    + compare_relations
+    + compare_queries
+    + compare_column_values
+    + compare_relation_columns
+    + compare_all_columns
+    + compare_column_values_verbose
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
