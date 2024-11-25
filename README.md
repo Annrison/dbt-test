@@ -17,11 +17,10 @@ This is a `dbt-test` quickstart template, that supports PostgreSQL run with podm
   - [2 Create a repository and env prepare​](#2-create-a-repository-and-env-prepare)
   - [3 Create a project​](#3-create-a-project)
   - [4 Connect to PostgreSQL​](#4-connect-to-postgresql)
-- [Course](#course)
-    - []()
 
 
-
+## material
++ for more info, you can check the ppt in `ppt` folder
 
 # Setup Steps
 
